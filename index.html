@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Threat Hunting Toolkit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg0:      #060a0f;
+    --bg1:      #0c1220;
+    --bg2:      #101828;
+    --bg3:      #1a2540;
+    --border:   #1e3050;
+    --accent:   #00e5a0;
+    --accent2:  #00b8ff;
+    --danger:   #ff4560;
+    --warn:     #ffd34e;
+    --ok:       #00e5a0;
+    --muted:    #4a6080;
+    --text:     #c8d8ec;
+    --text-dim: #6a8090;
+    --mono:     'Share Tech Mono', monospace;
+    --ui:       'Rajdhani', sans-serif;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    background: var(--bg0);
+    color: var(--text);
+    font-family: var(--ui);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Scrollbar ────────────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg1); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Top Bar ──────────────────────────────────────────────────────── */
+  #topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    height: 52px;
+    background: var(--bg1);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    border: 1.5px solid var(--accent);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  .logo-sub { color: var(--muted); font-size: 11px; letter-spacing: 2px; }
+
+  #api-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 3px;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    cursor: default;
+  }
+
+  #api-badge.ok    { border-color: var(--accent); color: var(--accent); }
+  #api-badge.error { border-color: var(--danger);  color: var(--danger);  }
+
+  /* ── Layout ───────────────────────────────────────────────────────── */
+  #layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ──────────────────────────────────────────────────────── */
+  #sidebar {
+    width: 190px;
+    background: var(--bg1);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .nav-section {
+    padding: 6px 16px 4px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-family: var(--ui);
+    font-size: 14px;
+    font-weight: 600;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .nav-item:hover { background: var(--bg2); color: var(--text); }
+
+  .nav-item.active {
+    background: var(--bg2);
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .nav-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 10px 16px;
+  }
+
+  /* ── Main Panel ───────────────────────────────────────────────────── */
+  #main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: flex; flex-direction: column; gap: 16px; }
+
+  /* ── Panel Header ─────────────────────────────────────────────────── */
+  .panel-title {
+    font-family: var(--ui);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .panel-title span { color: var(--accent); }
+  .panel-sub { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
+
+  /* ── Cards ────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--bg1);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 20px;
+  }
+
+  .card-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+  }
+
+  /* ── Search Bar ───────────────────────────────────────────────────── */
+  .search-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .ioc-input {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .ioc-input:focus { border-color: var(--accent); }
+  .ioc-input::placeholder { color: var(--muted); }
+
+  .type-select {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .btn {
+    padding: 10px 22px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--ui);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg0);
+  }
+  .btn-primary:hover { filter: brightness(1.15); }
+  .btn-primary:active { filter: brightness(0.9); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-danger  { background: var(--danger); color: #fff; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* ── Result box ───────────────────────────────────────────────────── */
+  #result-area { display: none; }
+
+  .verdict-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-radius: 5px;
+    border: 1px solid;
+  }
+
+  .verdict-banner.MALICIOUS  { background:#1a0608; border-color:var(--danger); }
+  .verdict-banner.SUSPICIOUS { background:#1a1206; border-color:var(--warn);   }
+  .verdict-banner.CLEAN      { background:#061a10; border-color:var(--accent);  }
+  .verdict-banner.UNKNOWN    { background:var(--bg2); border-color:var(--muted);}
+  .verdict-banner.NOT_FOUND  { background:var(--bg2); border-color:var(--muted);}
+
+  .verdict-label {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: bold;
+  }
+
+  .verdict-banner.MALICIOUS  .verdict-label { color: var(--danger); }
+  .verdict-banner.SUSPICIOUS .verdict-label { color: var(--warn);   }
+  .verdict-banner.CLEAN      .verdict-label { color: var(--accent);  }
+  .verdict-banner.UNKNOWN    .verdict-label { color: var(--muted);   }
+
+  .verdict-ratio {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--text);
+  }
+
+  .verdict-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  /* ── Stats row ────────────────────────────────────────────────────── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .stat-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+
+  .stat-box .num  { font-family: var(--mono); font-size: 24px; font-weight: bold; }
+  .stat-box .lbl  { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; margin-top: 4px; }
+
+  .stat-box.mal  .num { color: var(--danger);  }
+  .stat-box.sus  .num { color: var(--warn);    }
+  .stat-box.ok   .num { color: var(--accent);   }
+  .stat-box.info .num { color: var(--accent2);  }
+
+  /* ── Detections table ─────────────────────────────────────────────── */
+  .det-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  .det-table th {
+    background: var(--bg2);
+    color: var(--muted);
+    text-align: left;
+    padding: 7px 10px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .det-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+  .det-table tr:hover td { background: var(--bg2); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-danger     { background: #2a0810; color: var(--danger); border: 1px solid var(--danger); }
+  .badge-warn       { background: #2a1e06; color: var(--warn);   border: 1px solid var(--warn);   }
+  .badge-ok         { background: #06200e; color: var(--accent);  border: 1px solid var(--accent);  }
+  .badge-muted      { background: var(--bg3); color: var(--muted); border: 1px solid var(--muted); }
+
+  /* ── Extra fields ─────────────────────────────────────────────────── */
+  .kv-grid {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 1px;
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .kv-key   { background: var(--bg2); padding: 7px 12px; color: var(--muted); letter-spacing: 1px; }
+  .kv-value { background: var(--bg1); padding: 7px 12px; color: var(--text);  word-break: break-all; }
+
+  /* ── Tags ─────────────────────────────────────────────────────────── */
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--bg3);
+    color: var(--accent2);
+    border: 1px solid var(--border);
+  }
+
+  /* ── Loading spinner ──────────────────────────────────────────────── */
+  .spinner {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .scanning-msg {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  /* ── History & Watchlist tables ───────────────────────────────────── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .data-table th {
+    background: var(--bg2);
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+  }
+
+  .data-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--bg2);
+    vertical-align: middle;
+  }
+
+  .data-table tr:hover td { background: var(--bg2); }
+
+  .ioc-val { color: var(--accent2); font-size: 11px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Form fields ──────────────────────────────────────────────────── */
+  .form-row { display: flex; gap: 10px; align-items: flex-end; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+  .form-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; font-family: var(--mono); }
+
+  .form-input {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+  }
+  .form-input:focus { border-color: var(--accent); }
+
+  /* ── Toast ────────────────────────────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 12px 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    z-index: 999;
+    display: none;
+    max-width: 320px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from { transform: translateY(20px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+  #toast.success { border-color: var(--accent); color: var(--accent); }
+  #toast.error   { border-color: var(--danger);  color: var(--danger);  }
+
+  /* ── Empty state ──────────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  /* ── Progress bar ─────────────────────────────────────────────────── */
+  .prog-bar { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .prog-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+</style>
+</head>
+<body>
+
+<!-- ── Top Bar ─────────────────────────────────────────────────────────────── -->
+<div id="topbar">
+  <div class="logo">
+    <div class="logo-icon">⬡</div>
+    <div>
+      <div>THREAT HUNTING TOOLKIT</div>
+      <div class="logo-sub">INTELLIGENCE PLATFORM · v1.0</div>
+    </div>
+  </div>
+  <div id="api-badge">⬤ CHECKING API…</div>
+</div>
+
+<!-- ── Main Layout ─────────────────────────────────────────────────────────── -->
+<div id="layout">
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="nav-section">TOOLS</div>
+
+    <div class="nav-item active" data-tab="scanner">
+      <span class="nav-icon">⬡</span> IOC Scanner
+    </div>
+    <div class="nav-item" data-tab="hash">
+      <span class="nav-icon">◈</span> Hash Checker
+    </div>
+    <div class="nav-item" data-tab="domain">
+      <span class="nav-icon">◎</span> Domain Rep.
+    </div>
+    <div class="nav-item" data-tab="url">
+      <span class="nav-icon">⊞</span> URL Analysis
+    </div>
+
+    <hr class="nav-divider"/>
+    <div class="nav-section">MANAGE</div>
+
+    <div class="nav-item" data-tab="watchlist">
+      <span class="nav-icon">☰</span> IOC Watchlist
+    </div>
+    <div class="nav-item" data-tab="history">
+      <span class="nav-icon">◷</span> History
+    </div>
+
+    <hr class="nav-divider"/>
+    <div class="nav-section">OUTPUT</div>
+
+    <div class="nav-item" data-tab="report">
+      <span class="nav-icon">⬕</span> Export Report
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main id="main">
+
+    <!-- ── IOC Scanner ────────────────────────────────────────────────────── -->
+    <div class="tab-panel active" id="tab-scanner">
+      <div>
+        <div class="panel-title"><span>⬡</span> IOC Scanner</div>
+        <div class="panel-sub">Auto-detects and analyzes any IOC — IP, domain, URL, or hash</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">SUBMIT IOC FOR ANALYSIS</div>
+        <div class="search-row">
+          <input class="ioc-input" id="scan-input"
+                 placeholder="Enter IP, domain, URL, MD5, SHA-1 or SHA-256…"
+                 autocomplete="off" spellcheck="false"/>
+          <button class="btn btn-primary" id="scan-btn" onclick="analyzeIOC('scan-input')">
+            ⬡ SCAN
+          </button>
+        </div>
+        <div id="scan-type-hint" style="margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);">
+          Type will be auto-detected
+        </div>
+      </div>
+
+      <div id="result-area" class="card">
+        <div id="result-content"></div>
+      </div>
+    </div>
+
+    <!-- ── Hash Checker ───────────────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-hash">
+      <div>
+        <div class="panel-title"><span>◈</span> Hash Reputation</div>
+        <div class="panel-sub">Check MD5, SHA-1 or SHA-256 file hashes against VirusTotal</div>
+      </div>
+      <div class="card">
+        <div class="card-title">FILE HASH LOOKUP</div>
+        <div class="search-row">
+          <input class="ioc-input" id="hash-input"
+                 placeholder="e.g. d41d8cd98f00b204e9800998ecf8427e  (MD5 / SHA-1 / SHA-256)"
+                 autocomplete="off" spellcheck="false"/>
+          <button class="btn btn-primary" onclick="analyzeIOC('hash-input')">◈ CHECK</button>
+        </div>
+      </div>
+      <div id="hash-result-area" class="card" style="display:none">
+        <div id="hash-result-content"></div>
+      </div>
+    </div>
+
+    <!-- ── Domain Reputation ──────────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-domain">
+      <div>
+        <div class="panel-title"><span>◎</span> Domain Reputation</div>
+        <div class="panel-sub">Query domain intelligence, categories, and detection history</div>
+      </div>
+      <div class="card">
+        <div class="card-title">DOMAIN LOOKUP</div>
+        <div class="search-row">
+          <input class="ioc-input" id="domain-input"
+                 placeholder="e.g. evil-phishing.com"
+                 autocomplete="off" spellcheck="false"/>
+          <button class="btn btn-primary" onclick="analyzeIOC('domain-input')">◎ LOOKUP</button>
+        </div>
+      </div>
+      <div id="domain-result-area" class="card" style="display:none">
+        <div id="domain-result-content"></div>
+      </div>
+    </div>
+
+    <!-- ── URL Analysis ───────────────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-url">
+      <div>
+        <div class="panel-title"><span>⊞</span> URL Analysis</div>
+        <div class="panel-sub">Submit a URL for full reputation and safety analysis</div>
+      </div>
+      <div class="card">
+        <div class="card-title">URL SUBMISSION</div>
+        <div class="search-row">
+          <input class="ioc-input" id="url-input"
+                 placeholder="https://suspicious-site.example.com/malware.exe"
+                 autocomplete="off" spellcheck="false"/>
+          <button class="btn btn-primary" onclick="analyzeIOC('url-input')">⊞ ANALYZE</button>
+        </div>
+        <div style="margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);">
+          New URLs are submitted to VT for scanning — may take 15–30s
+        </div>
+      </div>
+      <div id="url-result-area" class="card" style="display:none">
+        <div id="url-result-content"></div>
+      </div>
+    </div>
+
+    <!-- ── IOC Watchlist ──────────────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-watchlist">
+      <div>
+        <div class="panel-title"><span>☰</span> IOC Watchlist</div>
+        <div class="panel-sub">Store and manage your tracked indicators of compromise</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">ADD IOC TO WATCHLIST</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">IOC VALUE</label>
+            <input class="form-input" id="wl-ioc" placeholder="IP / domain / hash / URL" spellcheck="false"/>
+          </div>
+          <div class="form-group" style="max-width:150px">
+            <label class="form-label">TAGS</label>
+            <input class="form-input" id="wl-tags" placeholder="apt29, c2"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">NOTES</label>
+            <input class="form-input" id="wl-notes" placeholder="Optional note"/>
+          </div>
+          <button class="btn btn-primary" style="flex-shrink:0;height:38px" onclick="addToWatchlist()">+ ADD</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin:0">WATCHLIST</div>
+          <input class="ioc-input" id="wl-search" placeholder="Filter watchlist…"
+                 style="width:220px;padding:6px 10px;font-size:11px"
+                 oninput="filterWatchlist(this.value)"/>
+        </div>
+        <div id="watchlist-table-wrap" style="overflow-x:auto">
+          <table class="data-table" id="watchlist-table">
+            <thead>
+              <tr>
+                <th>IOC</th><th>TYPE</th><th>TAGS</th>
+                <th>NOTES</th><th>ADDED</th><th>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody id="watchlist-body">
+              <tr><td colspan="6"><div class="empty-state">Loading watchlist…</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── History ────────────────────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-history">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="panel-title"><span>◷</span> Search History</div>
+          <div class="panel-sub">All IOC lookups performed in this session and previous sessions</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="clearHistory()">Clear History</button>
+      </div>
+
+      <div class="card">
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>IOC / QUERY</th><th>TYPE</th><th>VERDICT</th>
+                <th>MAL</th><th>SUS</th><th>TIMESTAMP</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <tr><td colspan="6"><div class="empty-state">Loading history…</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Export Report ──────────────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-report">
+      <div>
+        <div class="panel-title"><span>⬕</span> Export PDF Report</div>
+        <div class="panel-sub">Generate a full threat intelligence report from your search history and watchlist</div>
+      </div>
+
+      <div class="card" style="max-width:560px">
+        <div class="card-title">REPORT CONTENTS</div>
+        <div class="kv-grid" style="margin-bottom:16px">
+          <div class="kv-key">Scope</div>
+          <div class="kv-value">Last 200 searches + full watchlist</div>
+          <div class="kv-key">Format</div>
+          <div class="kv-value">PDF — A4, print-ready</div>
+          <div class="kv-key">Sections</div>
+          <div class="kv-value">Executive summary, IOC watchlist, search history, malicious detail cards</div>
+          <div class="kv-key">Saved to</div>
+          <div class="kv-value">exports/ directory (also downloaded)</div>
+        </div>
+        <button class="btn btn-primary" id="export-btn" onclick="exportReport()" style="width:100%">
+          ⬕ GENERATE &amp; DOWNLOAD PDF REPORT
+        </button>
+        <div id="export-status" style="margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--muted)"></div>
+      </div>
+    </div>
+
+  </main>
+</div><!-- #layout -->
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let allWatchlist = [];
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('tab-' + item.dataset.tab).classList.add('active');
+    if (item.dataset.tab === 'history')   loadHistory();
+    if (item.dataset.tab === 'watchlist') loadWatchlist();
+  });
+});
+
+// Enter key on inputs
+document.querySelectorAll('.ioc-input').forEach(inp => {
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const btn = inp.closest('.card, .tab-panel').querySelector('.btn-primary');
+      if (btn) btn.click();
+    }
+  });
+});
+
+// Auto-hint for scanner
+document.getElementById('scan-input').addEventListener('input', function() {
+  const v = this.value.trim();
+  if (!v) { document.getElementById('scan-type-hint').textContent = 'Type will be auto-detected'; return; }
+  const t = guessType(v);
+  document.getElementById('scan-type-hint').textContent = t ? `Detected: ${t}` : 'Unknown type — check your input';
+});
+
+function guessType(v) {
+  if (/^https?:\/\//i.test(v)) return 'URL';
+  if (/^[a-fA-F0-9]{64}$/.test(v)) return 'SHA-256 Hash';
+  if (/^[a-fA-F0-9]{40}$/.test(v)) return 'SHA-1 Hash';
+  if (/^[a-fA-F0-9]{32}$/.test(v)) return 'MD5 Hash';
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(v)) return 'IPv4 Address';
+  if (/^[a-zA-Z0-9][a-zA-Z0-9\-]*(\.[a-zA-Z]{2,})+$/.test(v)) return 'Domain';
+  return null;
+}
+
+// ── API status ────────────────────────────────────────────────────────────────
+async function checkApiStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    const badge = document.getElementById('api-badge');
+    if (d.api_key_configured) {
+      badge.textContent = `⬤ VT KEY: ${d.api_key_preview}`;
+      badge.className = 'ok';
+    } else {
+      badge.textContent = '⬤ VT KEY NOT SET';
+      badge.className = 'error';
+    }
+  } catch { }
+}
+checkApiStatus();
+
+// ── Analyze IOC ───────────────────────────────────────────────────────────────
+async function analyzeIOC(inputId) {
+  const input = document.getElementById(inputId);
+  const query = input.value.trim();
+  if (!query) { showToast('Please enter an IOC to scan.', 'error'); return; }
+
+  // Figure out which result area to use
+  const tabPrefix = inputId.split('-')[0]; // scan / hash / domain / url
+  const resultAreaId  = tabPrefix === 'scan' ? 'result-area' : `${tabPrefix}-result-area`;
+  const resultId      = tabPrefix === 'scan' ? 'result-content' : `${tabPrefix}-result-content`;
+
+  const resultArea    = document.getElementById(resultAreaId);
+  const resultContent = document.getElementById(resultId);
+
+  resultArea.style.display  = 'block';
+  resultContent.innerHTML   = `<div class="scanning-msg"><div class="spinner"></div> ANALYZING IOC — please wait (VT free tier ~15s between requests)…</div>`;
+
+  const btn = document.querySelector(`[onclick="analyzeIOC('${inputId}')"]`);
+  if (btn) btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      resultContent.innerHTML = renderError(data.error, data.verdict);
+    } else {
+      resultContent.innerHTML = renderResult(data, query);
+    }
+  } catch(e) {
+    resultContent.innerHTML = renderError('Network error: ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── Result renderers ──────────────────────────────────────────────────────────
+function renderError(msg, verdict) {
+  const cls = verdict === 'NOT_FOUND' ? 'NOT_FOUND' : 'UNKNOWN';
+  return `
+    <div class="verdict-banner ${cls}" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div class="verdict-label">${verdict === 'NOT_FOUND' ? 'NOT FOUND' : 'ERROR'}</div>
+      <div style="font-family:var(--mono);font-size:12px;color:var(--text-dim)">${escHtml(msg)}</div>
+    </div>`;
+}
+
+function renderResult(d, query) {
+  const v     = d.verdict || 'UNKNOWN';
+  const stats = d.stats   || {};
+  const total = stats.total || 1;
+  const ratio = `${stats.malicious || 0} / ${total}`;
+
+  const verdictBadge = {
+    MALICIOUS:  `<span class="badge badge-danger">MALICIOUS</span>`,
+    SUSPICIOUS: `<span class="badge badge-warn">SUSPICIOUS</span>`,
+    CLEAN:      `<span class="badge badge-ok">CLEAN</span>`,
+  }[v] || `<span class="badge badge-muted">UNKNOWN</span>`;
+
+  // Extra fields
+  const extra   = d.extra || {};
+  const kvPairs = Object.entries(extra)
+    .filter(([k,v]) => v && v !== '—' && v !== 0 && v !== '')
+    .filter(([k]) => !['md5','sha1','sha256','categories','whois'].includes(k))
+    .map(([k,v]) => {
+      const label = k.replace(/_/g,' ').toUpperCase();
+      const val   = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      return `<div class="kv-key">${escHtml(label)}</div><div class="kv-value">${escHtml(val.slice(0,200))}</div>`;
+    }).join('');
+
+  // Hash rows
+  let hashRows = '';
+  if (extra.sha256) hashRows += `<div class="kv-key">SHA-256</div><div class="kv-value" style="font-size:11px">${extra.sha256}</div>`;
+  if (extra.sha1)   hashRows += `<div class="kv-key">SHA-1</div><div class="kv-value" style="font-size:11px">${extra.sha1}</div>`;
+  if (extra.md5)    hashRows += `<div class="kv-key">MD5</div><div class="kv-value" style="font-size:11px">${extra.md5}</div>`;
+
+  // Tags
+  const tags   = (d.tags || []).map(t => `<span class="tag">${escHtml(t)}</span>`).join('');
+  const tagRow = tags ? `<div class="tag-list">${tags}</div>` : '';
+
+  // Detections table
+  const dets = (d.detections || []);
+  const detRows = dets.map(det => {
+    const cls = det.category === 'malicious' ? 'badge-danger' : 'badge-warn';
+    return `<tr>
+      <td>${escHtml(det.engine)}</td>
+      <td><span class="badge ${cls}">${det.category}</span></td>
+      <td style="color:var(--text-dim)">${escHtml(det.result)}</td>
+    </tr>`;
+  }).join('');
+
+  const detTable = dets.length ? `
+    <div class="card-title" style="margin-top:16px">DETECTIONS (${dets.length})</div>
+    <table class="det-table">
+      <thead><tr><th>ENGINE</th><th>CATEGORY</th><th>RESULT</th></tr></thead>
+      <tbody>${detRows}</tbody>
+    </table>` : `<div style="color:var(--muted);font-family:var(--mono);font-size:12px;margin-top:12px">No detections reported.</div>`;
+
+  // Progress bar
+  const pct = total > 0 ? Math.round((stats.malicious || 0) / total * 100) : 0;
+  const barColor = v === 'MALICIOUS' ? 'var(--danger)' : v === 'SUSPICIOUS' ? 'var(--warn)' : 'var(--accent)';
+
+  return `
+    <div class="verdict-banner ${v}" style="margin-bottom:16px">
+      <div>
+        <div class="verdict-label">${v}</div>
+        <div class="verdict-sub">${d.friendly_type || d.ioc_type} · Rep: ${d.reputation >= 0 ? '+' : ''}${d.reputation || 0}</div>
+        <div class="prog-bar" style="width:200px">
+          <div class="prog-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="verdict-ratio">${ratio}</div>
+        <div class="verdict-sub">engines detected</div>
+      </div>
+    </div>
+
+    <div class="stats-grid" style="margin-bottom:16px">
+      <div class="stat-box mal">
+        <div class="num">${stats.malicious  || 0}</div>
+        <div class="lbl">MALICIOUS</div>
+      </div>
+      <div class="stat-box sus">
+        <div class="num">${stats.suspicious || 0}</div>
+        <div class="lbl">SUSPICIOUS</div>
+      </div>
+      <div class="stat-box ok">
+        <div class="num">${stats.harmless   || 0}</div>
+        <div class="lbl">HARMLESS</div>
+      </div>
+      <div class="stat-box info">
+        <div class="num">${stats.undetected || 0}</div>
+        <div class="lbl">UNDETECTED</div>
+      </div>
+    </div>
+
+    ${tagRow}
+
+    ${kvPairs || hashRows ? `
+    <div class="card-title" style="margin-top:16px">IOC DETAILS</div>
+    <div class="kv-grid">${kvPairs}${hashRows}</div>` : ''}
+
+    ${detTable}
+
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="addWatchlistFromResult('${escHtml(query)}')">+ Add to Watchlist</button>
+    </div>`;
+}
+
+// ── Watchlist ─────────────────────────────────────────────────────────────────
+async function loadWatchlist() {
+  try {
+    const r = await fetch('/api/iocs');
+    allWatchlist = await r.json();
+    renderWatchlist(allWatchlist);
+  } catch(e) { console.error(e); }
+}
+
+function renderWatchlist(items) {
+  const tbody = document.getElementById('watchlist-body');
+  if (!items.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">No IOCs in watchlist yet. Add one above.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = items.map(ioc => `
+    <tr>
+      <td><span class="ioc-val" title="${escHtml(ioc.ioc)}">${escHtml(ioc.ioc)}</span></td>
+      <td><span class="badge badge-muted">${(ioc.ioc_type||'').toUpperCase()}</span></td>
+      <td style="color:var(--accent2);font-size:11px">${escHtml(ioc.tags||'')}</td>
+      <td style="color:var(--text-dim);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ioc.notes||'')}</td>
+      <td style="color:var(--muted)">${(ioc.added_at||'').slice(0,10)}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="scanFromWatchlist('${escHtml(ioc.ioc)}')">Scan</button>
+        <button class="btn btn-sm" style="background:var(--bg3);color:var(--danger);border:1px solid var(--danger);margin-left:4px"
+                onclick="deleteIOC(${ioc.id}, this)">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+function filterWatchlist(q) {
+  const f = q.toLowerCase();
+  renderWatchlist(f ? allWatchlist.filter(i =>
+    i.ioc.toLowerCase().includes(f) || (i.tags||'').toLowerCase().includes(f)
+  ) : allWatchlist);
+}
+
+async function addToWatchlist() {
+  const ioc   = document.getElementById('wl-ioc').value.trim();
+  const tags  = document.getElementById('wl-tags').value.trim();
+  const notes = document.getElementById('wl-notes').value.trim();
+  if (!ioc) { showToast('IOC value is required.', 'error'); return; }
+
+  const r = await fetch('/api/iocs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ioc, tags, notes })
+  });
+  const d = await r.json();
+
+  if (d.success) {
+    showToast(d.message, 'success');
+    document.getElementById('wl-ioc').value   = '';
+    document.getElementById('wl-tags').value  = '';
+    document.getElementById('wl-notes').value = '';
+    loadWatchlist();
+  } else {
+    showToast(d.error || 'Failed to add IOC.', 'error');
+  }
+}
+
+async function deleteIOC(id, btn) {
+  btn.disabled = true;
+  await fetch(`/api/iocs/${id}`, { method: 'DELETE' });
+  showToast('IOC removed from watchlist.', 'success');
+  loadWatchlist();
+}
+
+function scanFromWatchlist(ioc) {
+  document.getElementById('scan-input').value = ioc;
+  document.querySelector('[data-tab="scanner"]').click();
+  setTimeout(() => analyzeIOC('scan-input'), 100);
+}
+
+function addWatchlistFromResult(ioc) {
+  document.querySelector('[data-tab="watchlist"]').click();
+  document.getElementById('wl-ioc').value = ioc;
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const r = await fetch('/api/history?limit=150');
+    const rows = await r.json();
+    const tbody = document.getElementById('history-body');
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">No searches yet.</div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(row => {
+      const v = row.verdict || 'UNKNOWN';
+      const cls = { MALICIOUS:'badge-danger', SUSPICIOUS:'badge-warn', CLEAN:'badge-ok' }[v] || 'badge-muted';
+      return `<tr>
+        <td><span class="ioc-val" title="${escHtml(row.query)}">${escHtml(row.query)}</span></td>
+        <td style="color:var(--text-dim)">${(row.ioc_type||'').toUpperCase()}</td>
+        <td><span class="badge ${cls}">${v}</span></td>
+        <td style="color:var(--danger);text-align:center">${row.malicious_count  || 0}</td>
+        <td style="color:var(--warn); text-align:center">${row.suspicious_count || 0}</td>
+        <td style="color:var(--muted);font-size:11px">${(row.timestamp||'').slice(0,19)}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function clearHistory() {
+  if (!confirm('Clear all search history?')) return;
+  await fetch('/api/history', { method: 'DELETE' });
+  loadHistory();
+  showToast('History cleared.', 'success');
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+async function exportReport() {
+  const btn = document.getElementById('export-btn');
+  const status = document.getElementById('export-status');
+  btn.disabled = true;
+  btn.textContent = '⬕ GENERATING REPORT…';
+  status.textContent = 'Building PDF — this may take a moment…';
+
+  try {
+    const r = await fetch('/api/export', { method: 'POST' });
+    if (!r.ok) throw new Error('Server returned ' + r.status);
+    const blob = await r.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const cd   = r.headers.get('Content-Disposition') || '';
+    const name = (cd.match(/filename="?([^"]+)"?/) || [])[1] || 'threat_report.pdf';
+    a.href = url; a.download = name; a.click();
+    URL.revokeObjectURL(url);
+    status.textContent = `✓ Report downloaded: ${name}`;
+    status.style.color = 'var(--accent)';
+    showToast('PDF report downloaded!', 'success');
+  } catch(e) {
+    status.textContent = 'Export failed: ' + e.message;
+    status.style.color = 'var(--danger)';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬕ GENERATE & DOWNLOAD PDF REPORT';
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent  = msg;
+  t.className    = type || '';
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+</script>
+</body>
+</html>
